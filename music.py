@@ -1,43 +1,28 @@
 from utils import *
-import netease
-import qq
 import kugou
 import bilibili
-
-
-def input_int(min_val: int, max_val: int, prompt="请输入操作序号：") -> int:
-    while True:
-        choice = input(prompt)
-        try:
-            choice = int(choice)
-            if choice < min_val or choice > max_val:
-                print(f"\033[1;31m[Error] 输入的数值范围在{min_val}~{max_val}。\033[m")
-                continue
-            else:
-                return choice
-        except ValueError:
-            print("\033[1;31m[Error] 请输入一个数字。\033[m")
-            continue
+import netease
+import qq
 
 
 def print_platform():
-    print("\033[1;32m选择平台\033[m", end='\t')
-    print("平台名称")
-    print("\033[1;32m[1]\033[m", end='\t')
-    print("网易云音乐")
-    print("\033[1;32m[2]\033[m", end='\t')
-    print("QQ音乐")
-    print("\033[1;32m[3]\033[m", end='\t')
-    print("酷狗音乐")
-    print("\033[1;32m[4]\033[m", end='\t')
-    print("哔哩哔哩")
-    print("\033[1;31m[0]\t退出程序\033[m")
+    my_print("选择平台", color="green", highlight=True, end='\t')
+    my_print("平台名称")
+    my_print("[1]", color="green", highlight=True, end='\t')
+    my_print("网易云音乐")
+    my_print("[2]", color="green", highlight=True, end='\t')
+    my_print("QQ音乐")
+    my_print("[3]", color="green", highlight=True, end='\t')
+    my_print("酷狗音乐")
+    my_print("[4]", color="green", highlight=True, end='\t')
+    my_print("哔哩哔哩")
+    my_print("[0]\t退出程序", color="red", highlight=True)
 
 
 def main():
     while True:
         print_platform()
-        choice = input_int(0, 7,  prompt="请选择一个音乐平台：")
+        choice = my_input("请选择一个音乐平台：", int, min_val=0, max_val=4)
         clear_screen()
         if choice == 0:
             break

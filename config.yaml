@@ -1,0 +1,4 @@
+page_size: 10
+max_process: 5
+music_dir: './music/'
+save_artist: false
