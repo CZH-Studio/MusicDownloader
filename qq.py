@@ -97,7 +97,10 @@ class QQ(Music):
         music = requests.get(target_url, params=params, headers=self.headers, cookies=self.cookies).text
         music = json.loads(music)
         music_url = music["req_0"]["data"]["midurlinfo"][0]["purl"]
-        return 'http://ws.stream.qqmusic.qq.com/' + music_url
+        if music_url:
+            return 'http://ws.stream.qqmusic.qq.com/' + music_url
+        else:
+            return ''
 
     def get_album_info(self, album_id: StrInt) -> Tuple[str, str, List[Tuple[StrInt, str]]]:
         album_url = "https://i.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg" + \
