@@ -1,5 +1,5 @@
 import os
-from typing import TypeVar, Union, List, Type, Tuple
+from typing import TypeVar, Union, List, Type, Tuple, Any
 import yaml
 import json
 import re
@@ -69,7 +69,8 @@ def my_print(s: str,
              end='\n',
              file=None,
              color: str = "default",
-             highlight: bool = False) -> None:
+             highlight: bool = False,
+             ) -> None:
     """
     自定义输出，可以输出彩色字符
     :param s: 字符串
@@ -89,7 +90,8 @@ def my_input(prompt: str = "",
              color: str = "default",
              highlight: bool = False,
              min_val: Union[int, float] = 0,
-             max_val: Union[int, float] = 0) -> T:
+             max_val: Union[int, float] = 0,
+             default: Any = '') -> T:
     """
     自定义输入函数
     :param prompt: 提示符
@@ -98,12 +100,15 @@ def my_input(prompt: str = "",
     :param highlight: 是否高亮
     :param min_val: 如果期望得到一个数字，这个用来限定数值范围最小值
     :param max_val: 如果期望得到一个数字，这个用来限定数值范围最大值
+    :param default: 默认值
     :return: 任意类型
     """
     while True:
         ret = input(colorful(prompt, color, highlight))
         if t is str:
             break
+        if ret == "":
+            return default
         try:
             ret = t(ret)
         except NameError:
@@ -116,7 +121,7 @@ def my_input(prompt: str = "",
             if min_val <= ret <= max_val:
                 break
             else:
-                my_print(f"[Error] 输入的数值范围应当在{min_val}~{max_val}，请重新输入！", color="yellow", highlight=True)
+                my_print(f"[Error] 输入的数值范围应当在{min_val}~{max_val}，请重新输入！", color="red", highlight=True)
                 continue
         else:
             break
@@ -136,7 +141,7 @@ def print_query(ls: Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str,
     page_size = len(ls)
     if no_album:
         # 没有专辑的情况下，列表结构为[[歌曲序号, 歌曲名称, 艺术家], ...]
-        my_print("歌曲序号", color="green", highlight=True, end="\t")
+        my_print("选择歌曲", color="green", highlight=True, end="\t")
         my_print("歌曲名称", end="\t")
         my_print("艺术家", color="red")
         for idx, music_info in enumerate(ls):
@@ -145,8 +150,8 @@ def print_query(ls: Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str,
             my_print(f"{music_info[2]}", color="red")
     else:
         # 有专辑的情况下，列表结构为[[歌曲序号, 歌曲名称, 艺术家, 专辑序号, 专辑名称], ...]
-        my_print("歌曲序号", color="green", highlight=True, end="\t")
-        my_print("专辑序号", color="blue", highlight=True, end="\t")
+        my_print("选择歌曲", color="green", highlight=True, end="\t")
+        my_print("选择专辑", color="blue", highlight=True, end="\t")
         my_print("歌曲名称", end="\t")
         my_print("艺术家", color="red", end="\t")
         my_print("专辑名称", color="yellow")
@@ -181,8 +186,36 @@ def print_album(ls: list,
     for idx, music_info in enumerate(ls):
         my_print(f"[{idx + 1}]", color="green", highlight=True, end="\t")
         my_print(music_info[1])
-    my_print("[0]返回", color="red", highlight=True, end="\t")
-    my_print(f"[{music_cnt + 1}]下载专辑", color="green", highlight=True)
+    my_print("[0]返回搜索", color="red", highlight=True, end="\t")
+    my_print(f"[{music_cnt + 1}]下载全部", color="green", highlight=True)
+
+
+def print_song_list(ls: list,
+                    song_list_name: str,
+                    song_list_creator: str) -> None:
+    """
+    打印歌单信息
+    :param ls: 歌单信息列表
+    :param song_list_name: 歌单名称
+    :param song_list_creator: 歌单创建者名称
+    :return: None
+    """
+    page_size = len(ls)
+    my_print(f"歌单名称：{song_list_name}", color="yellow", highlight=True, end="\t")
+    my_print(f"创建者：{song_list_creator}", color="red", highlight=True)
+    my_print("选择歌曲", color="green", highlight=True, end="\t")
+    my_print("选择专辑", color="blue", highlight=True, end="\t")
+    my_print("歌曲名称", end="\t")
+    my_print("艺术家", color="red", end="\t")
+    my_print("专辑名称", color="yellow")
+    for idx, music_info in enumerate(ls):
+        my_print(f"[{idx + 1}]", color="green", highlight=True, end="\t")
+        my_print(f"[{idx + page_size + 1}]", color="blue", highlight=True, end="\t")
+        my_print(f"{music_info[1]}", end="\t")
+        my_print(f"{music_info[2]}", color="red", end="\t")
+        my_print(f"{music_info[4]}", color="yellow")
+    my_print("[0]返回搜索", color="red", highlight=True, end="\t")
+    my_print(f"[{page_size * 2 + 1}]下载全部", color="green", highlight=True)
 
 
 def clear_screen() -> None:
@@ -193,8 +226,26 @@ def clear_screen() -> None:
         os.system('clear')
 
 
+def get_parameter_value(url, param_name) -> str:
+    """
+    获取url中的参数值
+    :param url:
+    :param param_name:
+    :return:
+    """
+    index = url.find("?")
+    url = url[index + 1:]
+    param_value = url.split("&")
+    param_value = [param.split("=") for param in param_value]
+    param_value = [value[1] for value in param_value if value[0] == param_name]
+    if param_value:
+        return param_value[0]
+    else:
+        return ''
+
+
 class Music:
-    def __init__(self, class_name: str, headers: dict, cookies: dict, no_album: bool = False, ext: str = "mp3"):
+    def __init__(self, class_name: str, headers: dict, cookies: dict, no_album: bool = False, ext: str = "mp3", enable_song_list: bool = True):
         """
         初始化
         :param class_name: 模块名称
@@ -202,6 +253,7 @@ class Music:
         :param cookies: cookie
         :param no_album: 是否不包含专辑信息，默认False
         :param ext: 下载的文件扩展名，默认mp3
+        :param enable_song_list: 是否可以用歌单搜索，默认True
         """
         # 传参
         self.class_name = class_name    # 模块名称
@@ -209,6 +261,7 @@ class Music:
         self.cookies = cookies          # cookie
         self.no_album = no_album        # 是否不包含专辑信息
         self.ext = ext                  # 下载的文件扩展名
+        self.enable_song_list = enable_song_list  # 是否可以用歌单搜索
         # 配置
         self.page_size = PAGE_SIZE
         self.max_process = MAX_PROCESS
@@ -220,9 +273,17 @@ class Music:
 
     def run(self):
         while True:
-            query_keyword = my_input(f"[{self.class_name}音乐]请输入搜索的歌曲名，直接回车退出：")
+            if self.enable_song_list:
+                prompt = f"[{self.class_name}音乐]请输入搜索的歌曲名/粘贴歌单链接，直接回车退出："
+            else:
+                prompt = f"[{self.class_name}音乐]请输入搜索的歌曲名，直接回车退出："
+            query_keyword = my_input(prompt)
             if not query_keyword:
                 break
+            song_list_id = self.is_song_list_url(query_keyword)
+            if song_list_id and self.enable_song_list:
+                self._download_song_list(song_list_id)
+                continue
             page = 1
             while True:
                 flag_exit = False
@@ -245,7 +306,7 @@ class Music:
                 while True:
                     print_query(query, page, self.no_album)
                     choice_max = page_size + 2 if self.no_album else page_size * 2 + 2
-                    choice = my_input("[input] 请输入序号选择：", t=int, min_val=0, max_val=choice_max)
+                    choice = my_input(f"[input] 请输入序号选择([0]~{choice_max})：", t=int, min_val=0, max_val=choice_max, default=0)
                     if choice == 0:
                         # 返回搜索
                         flag_exit = True
@@ -253,7 +314,7 @@ class Music:
                         break
                     elif 1 <= choice <= page_size:
                         # 选择了一个歌曲
-                        download = my_input(f"[Input] 是否下载{query[choice - 1][1]}-{query[choice - 1][2]}？(1/[0])：", t=bool)
+                        download = my_input(f"[Input] 是否下载{query[choice - 1][1]}-{query[choice - 1][2]}？([1]/0)：", t=bool, default=True)
                         if download:
                             clear_screen()
                             self._download_music(query[choice - 1][0], query[choice - 1][1])
@@ -276,6 +337,7 @@ class Music:
                         break
                 if flag_exit:
                     break
+        clear_screen()
 
     def query(self, keyword: str, page: int) -> Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str, str, StrInt, str]], bool]:
         """
@@ -301,6 +363,59 @@ class Music:
         :return: 专辑信息(专辑名称, 艺术家名称, [(歌曲id，歌曲名称), ...])
         """
         pass
+
+    @staticmethod
+    def is_song_list_url(keyword) -> StrInt:
+        """
+        判断是否为歌单链接，需要重写
+        :param keyword: 链接
+        :return: 歌单id
+        """
+        return ''
+
+    def get_song_list_info(self, song_list_id: StrInt) -> Tuple[str, str, List[Tuple[StrInt, str, str, StrInt, str]]]:
+        """
+        从歌单链接获取歌单信息，需要重写
+        :param song_list_id: 歌单链接
+        :return: 查询结果(歌单名称、创建者、[(歌曲id, 歌曲名称, 艺术家名称, 专辑id, 专辑名称), ...])
+        """
+        pass
+
+    def _download_song_list(self, song_list_id: StrInt) -> None:
+        """
+        下载歌单函数，无需重写，这个函数把从歌单获取到的歌曲下载下来
+        :param song_list_id: 歌单id
+        :return None
+        """
+        song_list_name, song_list_creator, song_list_info = self.get_song_list_info(song_list_id)
+        while True:
+            print_song_list(song_list_info, song_list_name, song_list_creator)
+            music_cnt = len(song_list_info)
+            choice = my_input(f"[input] 请输入序号选择([0]~{music_cnt * 2 + 1})：", t=int, min_val=0, max_val=music_cnt * 2 + 1, default=0)
+            if choice == 0:
+                clear_screen()
+                break
+            elif 1 <= choice <= music_cnt:
+                download = my_input(f"[Input] 是否下载{song_list_info[choice - 1][1]}-{song_list_info[choice - 1][2]}？([1]/0)：", t=bool, default=True)
+                if download:
+                    clear_screen()
+                    self._download_music(song_list_info[choice - 1][0], song_list_info[choice - 1][1])
+                else:
+                    clear_screen()
+            elif music_cnt + 1 <= choice <= music_cnt * 2:
+                clear_screen()
+                self._download_album(song_list_info[choice - music_cnt - 1][3])
+            elif choice == music_cnt * 2 + 1:
+                download = my_input(f"[input] 是否下载歌单中的全部歌曲？([1]/0)：", t=bool, default=True)
+                clear_screen()
+                if download:
+                    for i in range(music_cnt):
+                        music_id = song_list_info[i][0]
+                        music_name = song_list_info[i][1]
+                        artist_name = song_list_info[i][2]
+                        self._download_music(music_id, music_name, artist_name, i == music_cnt - 1)
+                    if not self.download_queue.empty():
+                        self._download_start()
 
     def _download_music(self, music_id: StrInt, music_name: str, artist_name: str = "", download_now: bool = True) -> None:
         """
@@ -337,25 +452,27 @@ class Music:
         album_name, artist_name, album_info = self.get_album_info(album_id)
         print_album(album_info, album_name, artist_name)
         music_cnt = len(album_info)
-        choice = my_input("[input] 请输入序号选择：", t=int, min_val=0, max_val=music_cnt + 1)
+        choice = my_input(f"[input] 请输入序号选择([0]~{music_cnt + 1})：", t=int, min_val=0, max_val=music_cnt + 1, default=0)
         if choice == 0:
             clear_screen()
         elif 1 <= choice <= music_cnt:
             music_id = album_info[choice - 1][0]
             music_name = album_info[choice - 1][1]
-            download = my_input(f"[input] 是否下载 {music_name} ？(1/[0])：", t=bool)
+            download = my_input(f"[input] 是否下载 {music_name} ？([1]/0)：", t=bool, default=True)
             if download:
                 self._download_music(music_id, music_name, artist_name)
             else:
                 clear_screen()
         else:
-            download = my_input(f"[input] 是否下载专辑中的全部歌曲？(1/[0])：", t=bool)
+            download = my_input(f"[input] 是否下载专辑中的全部歌曲？([1]/0)：", t=bool, default=True)
             clear_screen()
             if download:
                 for i in range(music_cnt):
                     music_id = album_info[i][0]
                     music_name = album_info[i][1]
                     self._download_music(music_id, music_name, artist_name, i == music_cnt - 1)
+                if not self.download_queue.empty():
+                    self._download_start()
 
     def _download_start(self) -> None:
         """

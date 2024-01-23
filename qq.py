@@ -17,7 +17,8 @@ class QQ(Music):
             "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json, text/plain, */*",
             "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5"
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5",
+            "Referer": "https://y.qq.com/"
         }
         cookies = {
             "tvfe_boss_uuid": "288c72eb2129c389",
@@ -114,6 +115,26 @@ class QQ(Music):
         album_info = album_info["data"]["list"]
         album_info = [(item["songmid"], item["songname"]) for item in album_info]
         return album_name, artist_name, album_info
+
+    @staticmethod
+    def is_song_list_url(keyword: str) -> StrInt:
+        if keyword.startswith("https://i.y.qq.com/n2/m/share/details/taoge.html"):
+            return get_parameter_value(keyword, "id")
+        else:
+            return ''
+
+    def get_song_list_info(self, song_list_id: StrInt) -> Tuple[str, str, List[Tuple[StrInt, str, str, StrInt, str]]]:
+        song_list_url = (f"https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?"
+                         f"type=1&json=1&utf8=1&onlysong=0&disstid={song_list_id}"
+                         f"&format=json&g_tk=5381&loginUin=0&hostUin=0&inCharset=utf8"
+                         f"&outCharset=utf-8%C2%ACice=0&platform=yqq&needNewCode=0")
+        song_list_response = requests.get(song_list_url, headers=self.headers, cookies=self.cookies).text
+        song_list_info = json.loads(song_list_response)
+        song_list_name: str = song_list_info["cdlist"][0]["dissname"]
+        song_list_creator: str = song_list_info["cdlist"][0]["nickname"]
+        song_list_info = song_list_info["cdlist"][0]["songlist"]
+        song_list_info = [(q["songmid"], q["songname"], q["singer"][0]["name"], q["albummid"], q["albumname"]) for q in song_list_info]
+        return song_list_name, song_list_creator, song_list_info
 
 
 def main():

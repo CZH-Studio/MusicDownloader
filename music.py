@@ -22,7 +22,7 @@ def print_platform():
 def main():
     while True:
         print_platform()
-        choice = my_input("请选择一个音乐平台：", int, min_val=0, max_val=4)
+        choice = my_input("请选择一个音乐平台([0]~4)：", int, min_val=0, max_val=4, default=0)
         clear_screen()
         if choice == 0:
             break

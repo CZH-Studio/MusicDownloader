@@ -22,7 +22,7 @@ class Kugou(Music):
         self.max_sub_page = 20 // PAGE_SIZE
         if not self.max_sub_page:
             self.max_sub_page = 1
-        super().__init__(class_name, headers, cookies)
+        super().__init__(class_name, headers, cookies, enable_song_list=False)
 
     def query(self, keyword: str, page: int) -> Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str, str, StrInt, str]], bool]:
         search_data = {

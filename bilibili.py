@@ -59,7 +59,7 @@ class Bilibili(Music):
             "browser_resolution": "1912-924",
             "bp_video_offset_520271156": "883089613008142344"
         }
-        super().__init__(class_name, headers, cookies, no_album=True, ext="aac")
+        super().__init__(class_name, headers, cookies, no_album=True, ext="aac", enable_song_list=False)
 
     def query(self, keyword: str, page: int) -> Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str, str, StrInt, str]], bool]:
         query_url = "https://api.bilibili.com/x/web-interface/search/type?" + (f"__refresh__=true"
