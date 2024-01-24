@@ -5,9 +5,6 @@ from binascii import hexlify
 import base64
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import padding
 
 
 class Netease(Music):
@@ -62,7 +59,14 @@ class Netease(Music):
             "ntes_kaola_ad": "1",
             "gdxidpyhxdE": "v0XWh7PNCItNYMZJMx7ZoXbkg%2BEVEzAEq3zhSGBwzKytS8%2FOwW8LxByAcbwfrkQVePp%5Cda2DpTx%5CehqAhO5XH3zS0ZcX4bkHeBfbsp2%2F5aEgLRA7iB3J%2ByTaTSyC1T%2BaSSKffm%2FHqUbt%5CqtQ1ZN9kyAYvbKiQDor6C80k0TmgEBkZBBn%3A1705990710922"
         }
-        super().__init__(class_name, headers, cookies)
+        try:
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.backends import default_backend
+            from cryptography.hazmat.primitives import padding
+            enable_song_list = True
+        except ImportError:
+            enable_song_list = False
+        super().__init__(class_name, headers, cookies, enable_song_list=enable_song_list)
 
     def query(self, keyword: str, page: int) -> Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str, str, StrInt, str]], bool]:
         search_data = {
