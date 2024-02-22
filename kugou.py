@@ -65,7 +65,7 @@ class Kugou(Music):
         music_response = json.loads(music_response[7:-2])
         try:
             music_url = music_response['data']['play_url']
-        except KeyError or TypeError:
+        except TypeError:
             music_url = None
         return music_url
 
