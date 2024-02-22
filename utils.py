@@ -43,7 +43,7 @@ COLOR_DICT = {"red": 31, "green": 32, "yellow": 33, "blue": 34, "magenta": 35, "
 # 判断当前系统是否支持彩色输出
 system_type = platform.system()
 if system_type == 'Windows':
-    windows_version = int(platform.win32_ver()[0])
+    windows_version = float(platform.win32_ver()[0])
     if windows_version >= 10:
         COLORFUL_OK = True
     else:
