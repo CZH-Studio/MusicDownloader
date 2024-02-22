@@ -15,7 +15,7 @@ class Kugou(Music):
             "Sec-Fetch-Site": "none",
             "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json, text/plain, */*",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5"
         }
         cookies = {}

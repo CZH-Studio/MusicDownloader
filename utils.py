@@ -6,6 +6,7 @@ import re
 import multiprocessing as mp
 import requests
 import time
+import platform
 
 
 def write_config():
@@ -39,6 +40,18 @@ except KeyError:
 T = TypeVar("T")
 StrInt = Union[str, int]
 COLOR_DICT = {"red": 31, "green": 32, "yellow": 33, "blue": 34, "magenta": 35, "cyan": 36, "white": 37}
+# 判断当前系统是否支持彩色输出
+system_type = platform.system()
+if system_type == 'Windows':
+    windows_version = int(platform.win32_ver()[0])
+    if windows_version >= 10:
+        COLORFUL_OK = True
+    else:
+        COLORFUL_OK = False
+elif system_type == 'Linux':
+    COLORFUL_OK = True
+else:
+    COLORFUL_OK = False
 
 
 def colorful(s: str,
@@ -55,6 +68,8 @@ def colorful(s: str,
         assert color in ["default", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
     except AssertionError:
         my_print("[Warning] 颜色必须是以下颜色之一: None, 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'！已默认为白色。", "yellow")
+        return s
+    if not COLORFUL_OK:
         return s
     highlight = 1 if highlight else 0
     if color == "default":

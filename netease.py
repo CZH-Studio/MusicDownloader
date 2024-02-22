@@ -21,7 +21,7 @@ class Netease(Music):
         class_name = '网易云'
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36",
                    "Accept": "application/json, text/plain, */*",
-                   "Accept-Encoding": "gzip, deflate, br",
+                   "Accept-Encoding": "gzip, deflate",      # V1.3  原因：之前的请求头中Accept-Encoding中包含了br，是一种压缩格式而不是原字符串，修正后强制服务器发送原始的未压缩数据
                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5",
                    "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
                    "Referer": "https://music.163.com/",
@@ -34,38 +34,7 @@ class Netease(Music):
                    "Sec-Fetch-Site": "none"
                    }
         cookies = {
-            "NMTID": "00OhBuQwHZaM1mn40rEhgzzDRjmfIMAAAGGSxoCUA",
-            "nts_mail_user": "czh666czh666czh666@163.com:-1:1",
-            "WEVNSM": "1.0.0",
-            "WNMCID": "sqylbk.1677759004659.01.0",
-            "WM_TID": "EMsziQvipGNERERBUAOFbcxNX82gALYo",
-            "_iuqxldmzr_": "32",
-            "ntes_utid": "tid._.QesfzQ4kDplFRwRAAAPFwCC8HVJDKnK6._.0",
-            "sDeviceId": "YD-RY3kMdg5lAJFVgEQQFKBbd6W3SR06Cg5",
-            "JSESSIONID-WYYY": "uE2DcgJtmu2QGnPu4Pqf9w8KonDF9xJdx%2Fuon%2BCudbe4PNCoPQEA3BnOjS8v3JccBlF%5Cn5%5CqPmZ7smKYRtIfi0NUZjpQpF64TZ7YPnul7VnjHd%2FjKwqgrhxlqTj2%2BRMFpxVZ0H4wBEDg0JimhljxYRD1NtTI6xK2JcP5p%2B1rRvgAuG2p%3A1706006375795",
-            "WM_NI": "7MmIeltg8cOkaeCFK%2FDVw4RxPpGWX02ofBhIRKjgIZdjVtQGf4kKGC3NJEdp6t4vnoNUR9qP4lpEHGJE%2Bx7a8pAA1ao3TkYyHbxAxGBf%2BpdDhCDN%2BDEYa3E0cDXhkiw0eE4%3D",
-            "WM_NIKE": "9ca17ae2e6ffcda170e2e6ee97ee3c8a998b9ad850aeb88ba6d55f939a8bb1d834f3eba9a3f65cbcf0a990c12af0fea7c3b92af593a3aae868b8b9f884ce61a3bb8da7ca25888ab9d5d17494b089b8db3cf2b1aaa3eb439295a688cc52a8b69a95d44da6eca5acc649f19286a6e77cf6acfc97ed658e8b9edaf45cf8b4c0a6cb4d8a9be599b66bfcb08fa2b46baded9c8cdc738cbeb8a2fb4d82bae591e750ac9d8cafaa508787afd4c83ca19c9889ea63b5f0aba6b737e2a3",
-            "__snaker__id": "lrByOVKRqQmttdmO",
-            "_ntes_nuid":
-                "74205f79cdcf71700ee71e6bfa31f57c",
-            "_ntes_nnid":
-                "74205f79cdcf71700ee71e6bfa31f57c,1706005791219",
-            "NTES_P_UTID":
-                "9YSGoOfkbTZ43iShO8WDt6hH17pFRXgK|1705975611",
-            "P_INFO":
-                "czh666czh666czh666@163.com|1703404139|0|mail163|00&99|null&null&null#hlj&231100#10#0#0|&0||czh666czh666czh666@163.com",
-            "MUSIC_U":
-                "00C0FA1299BBD04AB2C2C82E4B19FA7C9EB710520B77BCB0EB0479642B9879C0FFB6B058479738015A150A8AEC2A6F207EF7018F4B2371B9FAD917"
-                "81E94BDC6E226854D1FD649E5EC4FC5FB7EFF77DBB30CCD642C9737A43D2FEDEA03D1D62A7D3F6678A0CE453921FF82CC60870A28313DC7CB3D727"
-                "356C30FCE6B49D9BC1FA176CB5C05584CEEE50C54A982A565254D315DFD378CAF694C9A84B3C79133F37E074841CD8916A37ECA99FD14EDB0B1291"
-                "6E174315112F7B35B3CD00EAF1CF2B82A0E1F34B610C7667E51C54DD86BA67CE91EE15416D55E701728D4EC85C4860F1BEDEF2D94C1CABEB5C4B68"
-                "8C406B82C9AF6E4C07A269939A214F247A204F94A2BB057A738BBF985D32B86B53C6E37F69CE0815394E16D6E03BFF1BB506B921F0D65F5D19CF57"
-                "973972A826C4BD33BF11B3BC35413DB9539E97FD21565AD7698842AD6CDCBFC4FC296EE76A7FCA8C913EF033504F6323C6FA604F09C74DE85D323F"
-                "0B035709F9D5208A4DCA90DE357C69",
-            "__remember_me": "true",
-            "__csrf": "1d18b8d276c9d5b9a3fb0034d5968929",
-            "ntes_kaola_ad": "1",
-            "gdxidpyhxdE": "v0XWh7PNCItNYMZJMx7ZoXbkg%2BEVEzAEq3zhSGBwzKytS8%2FOwW8LxByAcbwfrkQVePp%5Cda2DpTx%5CehqAhO5XH3zS0ZcX4bkHeBfbsp2%2F5aEgLRA7iB3J%2ByTaTSyC1T%2BaSSKffm%2FHqUbt%5CqtQ1ZN9kyAYvbKiQDor6C80k0TmgEBkZBBn%3A1705990710922"
+            "NMTID": "00OhBuQwHZaM1mn40rEhgzzDRjmfIMAAAGGSxoCUA"
         }
 
         super().__init__(class_name, headers, cookies, enable_song_list=ENABLE_SONG_LIST)
