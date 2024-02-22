@@ -52,6 +52,9 @@ elif system_type == 'Linux':
     COLORFUL_OK = True
 else:
     COLORFUL_OK = False
+# 如果当前文件夹下没有music文件夹，则创建一个
+if not os.path.exists(MUSIC_DIR):
+    os.mkdir(MUSIC_DIR)
 
 
 def colorful(s: str,
