@@ -49,7 +49,7 @@ class Kugou(Music):
         return query
 
     def get_music_url(self, music_id: StrInt) -> str:
-        # 酷狗音乐比较奇怪，获取音乐url时需要用musicID和albumID，需要先拆分
+        # 酷狗音乐比较奇怪，获取音乐url时需要用musicID和albumID，需要先拆分，还有无法获取音乐链接的情况
         music_id = music_id.split("&")
         album_id = music_id[1]
         music_id = music_id[0]
@@ -63,7 +63,10 @@ class Kugou(Music):
                     f"&_={timestamp}")
         music_response = requests.get(info_url, headers=self.headers).text
         music_response = json.loads(music_response[7:-2])
-        music_url = music_response['data']['play_url']
+        try:
+            music_url = music_response['data']['play_url']
+        except KeyError or TypeError:
+            music_url = None
         return music_url
 
     def get_album_info(self, album_id: StrInt) -> Tuple[str, str, List[Tuple[StrInt, str]]]:
