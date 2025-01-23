@@ -1,4 +1,4 @@
 page_size: 10
-max_process: 5
-music_dir: './music/'
+max_process: 1
+music_dir: './music_download/'
 save_artist: false

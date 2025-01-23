@@ -1,3 +1,3 @@
 python ./music.py
-explorer ".\music"
+explorer ".\music_download"
 pause

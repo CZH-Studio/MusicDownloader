@@ -5,6 +5,7 @@ from binascii import hexlify
 import base64
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
+from music import Music
 try:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from cryptography.hazmat.backends import default_backend

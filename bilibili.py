@@ -1,4 +1,5 @@
 from utils import *
+from music import Music
 
 
 def get_raw_content(s) -> str:

@@ -1,4 +1,5 @@
 from utils import *
+from music import Music
 
 
 class QQ(Music):
