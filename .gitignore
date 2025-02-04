@@ -1,3 +1,4 @@
 .idea
 .vscode
 *.mp3
+/__pycache__
