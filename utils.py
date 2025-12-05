@@ -1,262 +1,180 @@
+from dataclasses import dataclass, asdict
+from pathlib import Path
 import os
-from typing import TypeVar, Union, List, Type, Tuple, Any
-import yaml
 import json
-import re
-import multiprocessing as mp
+import queue
+import threading
+import textwrap
+
 import requests
-import time
-import platform
+from prettytable import PrettyTable, PLAIN_COLUMNS
+
+from music_platform import MusicPlatform, MusicQueryResult, Music
 
 
-def write_config():
-    with open("config.yaml", "w", encoding="utf-8") as f:
-        f.write("page_size: 10\nmax_process: 5\nmusic_dir: '../music/'\nsave_artist: true")
+@dataclass
+class Config:
+    page_size: int = 10
+    num_threads: int = 4
+    save_dir: str = "music"
+    save_filename: str = "{name} - {artist}"
+    shorten: int = 20
 
 
-def read_config():
-    with open("config.yaml", "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+def load_config() -> Config:
+    if not CONFIG_PATH.exists():
+        config = Config()
+        json.dump(asdict(config), open(CONFIG_PATH, "w"), indent=4)
+    else:
+        config = Config(**json.load(open(CONFIG_PATH)))
+    Path(config.save_dir).mkdir(exist_ok=True, parents=True)
     return config
 
 
-if os.path.exists("config.yaml"):
-    CONFIG = read_config()
-else:
-    write_config()
-    CONFIG = read_config()
-try:
-    PAGE_SIZE = CONFIG["page_size"]  # 每页显示的数量
-    MAX_PROCESS = CONFIG["max_process"]  # 最大进程数
-    MUSIC_DIR = CONFIG["music_dir"]  # 音乐文件保存路径
-    SAVE_ARTIST = CONFIG["save_artist"]     # 文件名中是否含有艺术家信息
-except KeyError:
-    write_config()
-    PAGE_SIZE = 10
-    MAX_PROCESS = 5
-    MUSIC_DIR = "music/"
-    SAVE_ARTIST = True
-
-T = TypeVar("T")
-StrInt = Union[str, int]
-COLOR_DICT = {"red": 31, "green": 32, "yellow": 33, "blue": 34, "magenta": 35, "cyan": 36, "white": 37}
-# 判断当前系统是否支持彩色输出
-system_type = platform.system()
-if system_type == 'Windows':
-    windows_version = float(platform.win32_ver()[0])
-    if windows_version >= 10:
-        COLORFUL_OK = True
+def cls() -> None:
+    """清屏"""
+    if os.name == "nt":
+        os.system("cls")
     else:
-        COLORFUL_OK = False
-elif system_type == 'Linux':
-    COLORFUL_OK = True
-else:
-    COLORFUL_OK = False
-# 如果当前文件夹下没有music文件夹，则创建一个
-if not os.path.exists(MUSIC_DIR):
-    os.mkdir(MUSIC_DIR)
+        os.system("clear")
 
 
-def colorful(s: str,
-             color: str = "default",
-             highlight: bool = False) -> str:
-    """
-    输出彩色字符
-    :param s: 字符串
-    :param color: 颜色
-    :param highlight: 是否高亮
-    :return: 变了颜色的字符串
-    """
-    try:
-        assert color in ["default", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
-    except AssertionError:
-        my_print("[Warning] 颜色必须是以下颜色之一: None, 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'！已默认为白色。", "yellow")
-        return s
-    if not COLORFUL_OK:
-        return s
-    highlight = 1 if highlight else 0
-    if color == "default":
-        return s
+def input_int(
+    prompt: str,
+    min_val: int | None = None,
+    max_val: int | None = None,
+    default: int | None = None,
+) -> int:
+    prompt_min = "" if min_val is None else str(min_val)
+    prompt_max = "" if max_val is None else str(max_val)
+    prompt_default = "" if default is None else f"[{default}]"
+    if prompt_min or prompt_max:
+        prompt_range = f" ({prompt_min}~{prompt_max} {prompt_default}): "
+    elif prompt_default:
+        prompt_range = f" ({prompt_default}): "
     else:
-        return f"\033[{highlight};{COLOR_DICT[color]}m{s}\033[m"
-
-
-def my_print(s: str,
-             *args,
-             sep=' ',
-             end='\n',
-             file=None,
-             color: str = "default",
-             highlight: bool = False,
-             ) -> None:
-    """
-    自定义输出，可以输出彩色字符
-    :param s: 字符串
-    :param args: 其他参数
-    :param sep: 分隔符
-    :param end: 结尾字符
-    :param file: 文件
-    :param color: 颜色（默认default白色输出；红色：red；绿色：green；黄色：yellow；蓝色：blue；品红：magenta；青色：cyan；白色：white）
-    :param highlight: 是否高光
-    :return: None
-    """
-    print(colorful(s, color, highlight), *args, sep=sep, end=end, file=file)
-
-
-def my_input(prompt: str = "",
-             t: Type[T] = str,
-             color: str = "default",
-             highlight: bool = False,
-             min_val: Union[int, float] = 0,
-             max_val: Union[int, float] = 0,
-             default: Any = '') -> T:
-    """
-    自定义输入函数
-    :param prompt: 提示符
-    :param t: 输入后得到的类型
-    :param color: 提示颜色
-    :param highlight: 是否高亮
-    :param min_val: 如果期望得到一个数字，这个用来限定数值范围最小值
-    :param max_val: 如果期望得到一个数字，这个用来限定数值范围最大值
-    :param default: 默认值
-    :return: 任意类型
-    """
+        prompt_range = ": "
+    prompt = prompt + prompt_range
     while True:
-        ret = input(colorful(prompt, color, highlight))
-        if t is str:
-            break
-        if ret == "":
+        user_input = input(prompt)
+        if user_input == "" and default is not None:
             return default
         try:
-            ret = t(ret)
-        except NameError:
-            my_print("[Warning] 输入函数传参时指定的类型不错误！已默认为str。", color="yellow", highlight=True)
-            break
-        except ValueError:
-            my_print(f"[Error] 输入的类型限制为{t}，请重新输入！", color="red", highlight=True)
-            continue
-        if t is int or t is float:
-            if min_val <= ret <= max_val:
-                break
+            num = int(user_input)
+            if (min_val is None or num >= min_val) and (
+                max_val is None or num <= max_val
+            ):
+                return num
             else:
-                my_print(f"[Error] 输入的数值范围应当在{min_val}~{max_val}，请重新输入！", color="red", highlight=True)
                 continue
-        else:
-            break
-    return ret
+        except ValueError:
+            continue
 
 
-def print_query(ls: Union[List[Tuple[StrInt, str, str]], List[Tuple[StrInt, str, str, StrInt, str]]],
-                page: int = 0,
-                no_album: bool = False) -> None:
-    """
-    输出一个查询结果
-    :param ls: 查询结果列表
-    :param page: 当前页号
-    :param no_album: 是否不输出专辑信息
-    :return: None
-    """
-    page_size = len(ls)
-    if no_album:
-        # 没有专辑的情况下，列表结构为[[歌曲序号, 歌曲名称, 艺术家], ...]
-        my_print("选择歌曲", color="green", highlight=True, end="\t")
-        my_print("歌曲名称", end="\t")
-        my_print("艺术家", color="red")
-        for idx, music_info in enumerate(ls):
-            my_print(f"[{idx + 1}]", color="green", highlight=True, end="\t")
-            my_print(music_info[1], end="\t")
-            my_print(f"{music_info[2]}", color="red")
+def download_worker(thread_id: int):
+    while not STOP_FLAG:
+        try:
+            music, url, headers, cookies, path = DOWNLOAD_QUEUE.get(timeout=1)
+            music: Music
+            url: str
+            headers: dict
+            cookies: dict
+            path: Path
+        except queue.Empty:
+            continue
+        try:
+            response = requests.get(url, stream=True, headers=headers, cookies=cookies)
+            response.raise_for_status()
+            path.parent.mkdir(exist_ok=True, parents=True)
+            with open(path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    f.write(chunk)
+            print(f"{music.name} - {music.artists_str} 下载完成")
+        except Exception as e:
+            print(f"{music.name} - {music.artists_str} 下载失败 ({e})")
+        finally:
+            DOWNLOAD_QUEUE.task_done()
+
+
+def start_download_threads(num_threads: int):
+    threads = []
+    for i in range(num_threads):
+        t = threading.Thread(target=download_worker, args=(i,), daemon=True)
+        t.start()
+        threads.append(t)
+    return threads
+
+
+CONFIG_PATH = Path("config.json")
+CONFIG = load_config()
+DOWNLOAD_QUEUE = queue.Queue()
+STOP_FLAG = False
+threads = start_download_threads(CONFIG.num_threads)
+
+
+def save_shorten(s: str, width: int, placeholder: str = "..."):
+    if width <= len(placeholder):
+        # 如果宽度太窄，至少保留第一个字符 + 省略号
+        return s[: max(1, width - len(placeholder))] + placeholder
+
+    shortened = textwrap.shorten(s, width=width, placeholder=placeholder)
+
+    # 如果只剩 placeholder，则手动截断
+    if shortened == placeholder:
+        return s[: width - len(placeholder)] + placeholder
+
+    return shortened
+
+
+def print_platform(platforms: list[MusicPlatform]):
+    table = PrettyTable()
+    table.set_style(PLAIN_COLUMNS)
+    table.align = "l"
+    table.padding_width = 0
+    table.title = "平台列表"
+    table.field_names = ["选项", "平台"]
+    for i, platform in enumerate(platforms):
+        table.add_row([f"[{i+1}]", platform.name])
+    table.add_row(["[0]", "退出程序"])
+    print(table)
+
+
+def print_query_result(result: MusicQueryResult, title: str, print_download_all: bool):
+    table = PrettyTable()
+    table.set_style(PLAIN_COLUMNS)
+    table.align = "l"
+    table.padding_width = 0
+    table.title = title
+    table.field_names = ["选项", "歌曲", "歌手", "专辑"]
+    for i, music in enumerate(result):
+        table.add_row(
+            [
+                f"[{i+1}]",
+                save_shorten(music.name, CONFIG.shorten),
+                save_shorten(music.artists_str, CONFIG.shorten),
+                save_shorten(music.album, CONFIG.shorten),
+            ]
+        )
+    table.add_row(["[0]", "返回搜索", "", ""])
+    if print_download_all:
+        table.add_row([f"[{len(result)+1}]", "下载全部", "", ""])
     else:
-        # 有专辑的情况下，列表结构为[[歌曲序号, 歌曲名称, 艺术家, 专辑序号, 专辑名称], ...]
-        my_print("选择歌曲", color="green", highlight=True, end="\t")
-        my_print("选择专辑", color="blue", highlight=True, end="\t")
-        my_print("歌曲名称", end="\t")
-        my_print("艺术家", color="red", end="\t")
-        my_print("专辑名称", color="yellow")
-        for idx, music_info in enumerate(ls):
-            my_print(f"[{idx + 1}]", color="green", highlight=True, end="\t")
-            my_print(f"[{idx + page_size + 1}]", color="blue", highlight=True, end="\t")
-            my_print(f"{music_info[1]}", end="\t")
-            my_print(f"{music_info[2]}", color="red", end="\t")
-            my_print(f"{music_info[4]}", color="yellow")
-    my_print(f"当前页面：{page}", color="magenta", highlight=True)
-    my_print("[0]返回搜索", color="red", highlight=True, end="\t")
-    options_count = page_size if no_album else 2 * page_size
-    my_print(f"[{options_count + 1}]上一页", color="yellow", highlight=True, end="\t")
-    my_print(f"[{options_count + 2}]下一页", color="green", highlight=True)
+        table.add_row([f"[{len(result)+1}]", "上一页", "", ""])
+        table.add_row([f"[{len(result)+2}]", "下一页", "", ""])
+    print(table)
 
 
-def print_album(ls: list,
-                album_name: str,
-                album_artist_name: str) -> None:
-    """
-    打印专辑信息
-    :param ls: 专辑信息列表
-    :param album_name: 专辑名称
-    :param album_artist_name: 艺术家名称
-    :return: None
-    """
-    my_print(f"专辑名称：{album_name}", color="yellow", highlight=True, end="\t")
-    my_print(f"艺术家：{album_artist_name}", color="red", highlight=True)
-    my_print("歌曲序号", color="green", highlight=True, end="\t")
-    my_print("歌曲名称")
-    music_cnt = len(ls)
-    for idx, music_info in enumerate(ls):
-        my_print(f"[{idx + 1}]", color="green", highlight=True, end="\t")
-        my_print(music_info[1])
-    my_print("[0]返回搜索", color="red", highlight=True, end="\t")
-    my_print(f"[{music_cnt + 1}]下载全部", color="green", highlight=True)
-
-
-def print_song_list(ls: list,
-                    song_list_name: str,
-                    song_list_creator: str) -> None:
-    """
-    打印歌单信息
-    :param ls: 歌单信息列表
-    :param song_list_name: 歌单名称
-    :param song_list_creator: 歌单创建者名称
-    :return: None
-    """
-    page_size = len(ls)
-    my_print(f"歌单名称：{song_list_name}", color="yellow", highlight=True, end="\t")
-    my_print(f"创建者：{song_list_creator}", color="red", highlight=True)
-    my_print("选择歌曲", color="green", highlight=True, end="\t")
-    my_print("选择专辑", color="blue", highlight=True, end="\t")
-    my_print("歌曲名称", end="\t")
-    my_print("艺术家", color="red", end="\t")
-    my_print("专辑名称", color="yellow")
-    for idx, music_info in enumerate(ls):
-        my_print(f"[{idx + 1}]", color="green", highlight=True, end="\t")
-        my_print(f"[{idx + page_size + 1}]", color="blue", highlight=True, end="\t")
-        my_print(f"{music_info[1]}", end="\t")
-        my_print(f"{music_info[2]}", color="red", end="\t")
-        my_print(f"{music_info[4]}", color="yellow")
-    my_print("[0]返回搜索", color="red", highlight=True, end="\t")
-    my_print(f"[{page_size * 2 + 1}]下载全部", color="green", highlight=True)
-
-
-def clear_screen() -> None:
-    """清屏"""
-    if os.name == 'nt':
-        os.system('cls')
-    else:
-        os.system('clear')
-
-
-def get_parameter_value(url, param_name) -> str:
-    """
-    获取url中的参数值
-    :param url:
-    :param param_name:
-    :return:
-    """
-    index = url.find("?")
-    url = url[index + 1:]
-    param_value = url.split("&")
-    param_value = [param.split("=") for param in param_value]
-    param_value = [value[1] for value in param_value if value[0] == param_name]
-    if param_value:
-        return param_value[0]
-    else:
-        return ''
+def print_music_item(platform: MusicPlatform, music: Music):
+    table = PrettyTable()
+    table.set_style(PLAIN_COLUMNS)
+    table.align = "l"
+    table.padding_width = 0
+    table.title = f"{platform.name} > 音乐 > {music.name}"
+    table.field_names = ["选项", "操作"]
+    table.add_row([f"[{1}]", "下载"])
+    for i, artist in enumerate(music.artists):
+        table.add_row([f"[{i+2}]", f"搜索歌手: {artist}"])
+    if music.album_id:
+        table.add_row([f"[{2+len(music.artists)}]", f"搜索专辑: {music.album}"])
+    table.add_row([f"[{0}]", "返回搜索结果"])
+    print(table)

@@ -1,40 +1,175 @@
-from utils import *
-import kugou
-import bilibili
-import netease
-import qq
+from pathlib import Path
+import time
+
+from utils import (
+    CONFIG,
+    input_int,
+    cls,
+    DOWNLOAD_QUEUE,
+    STOP_FLAG,
+    print_platform,
+    print_query_result,
+    print_music_item,
+)
+from music_platform import MusicPlatform, Music, Artist
+
+from music_platform.netease import Netease
+from music_platform.qq import QQ
+from music_platform.bilibili import Bilibili
+
+# from music_platform.kugou import Kugou
 
 
-def print_platform():
-    my_print("选择平台", color="green", highlight=True, end='\t')
-    my_print("平台名称")
-    my_print("[1]", color="green", highlight=True, end='\t')
-    my_print("网易云音乐")
-    my_print("[2]", color="green", highlight=True, end='\t')
-    my_print("QQ音乐")
-    my_print("[3]", color="green", highlight=True, end='\t')
-    my_print("酷狗音乐")
-    my_print("[4]", color="green", highlight=True, end='\t')
-    my_print("哔哩哔哩")
-    my_print("[0]\t退出程序", color="red", highlight=True)
-
-
-def main():
+def artist_loop(platform: MusicPlatform, artist: Artist):
     while True:
-        print_platform()
-        choice = my_input("请选择一个音乐平台([0]~4)：", int, min_val=0, max_val=4, default=0)
-        clear_screen()
+        cls()
+        result = platform.query_artist(artist.artist_id)
+        print_query_result(result, f"{platform.name} > 歌手 > {artist.name}", True)
+        choice = input_int("请选择", 0, len(result) + 1, 0)
+        if choice == 0:
+            break
+        elif choice == len(result) + 1:
+            download_all(platform, result.musics)
+        else:
+            item = result[choice - 1]
+            item_loop(platform, item)
+
+
+def album_loop(platform: MusicPlatform, music: Music):
+    while True:
+        cls()
+        result = platform.query_album(music.album_id)
+        print_query_result(result, f"{platform.name} > 专辑 > {music.album}", True)
+        choice = input_int("请选择", 0, len(result) + 1, 0)
+        if choice == 0:
+            break
+        elif choice == len(result) + 1:
+            download_all(platform, result.musics)
+        else:
+            item = result[choice - 1]
+            item_loop(platform, item)
+
+
+def download_one(platform: MusicPlatform, music: Music):
+    cls()
+    choice = input_int(f"确认下载 {music.name} - {music.artists_str} ?", 0, 1, 1)
+    if choice == 0:
+        return
+    url = platform.get_music_url(music.music_id)
+    if url is None:
+        print(f"由于版权原因无法下载 {music.name}")
+        time.sleep(2)
+        return
+    try:
+        path = Path(CONFIG.save_dir) / (
+            CONFIG.save_filename.format(**music.to_dict()) + f".{platform.ext}"
+        )
+    except KeyError:
+        print("无法下载，请检查config.json中的save_filename配置！")
+        time.sleep(2)
+        return
+    DOWNLOAD_QUEUE.put((music, url, platform.headers, platform.cookies, path))
+    DOWNLOAD_QUEUE.join()
+    time.sleep(2)
+
+
+def download_all(platform: MusicPlatform, musics: list[Music]):
+    cls()
+    choice = input_int("确认下载全部音乐?", 0, 1, 1)
+    if choice == 0:
+        return
+    for music in musics:
+        url = platform.get_music_url(music.music_id)
+        if url is None:
+            print(f"由于版权原因无法下载 {music.name}")
+        path = Path(CONFIG.save_dir) / (
+            CONFIG.save_filename.format(**music.to_dict()) + f".{platform.ext}"
+        )
+        DOWNLOAD_QUEUE.put((music, url, platform.headers, platform.cookies, path))
+    DOWNLOAD_QUEUE.join()
+    time.sleep(2)
+
+
+def item_loop(platform: MusicPlatform, music: Music):
+    while True:
+        cls()
+        print_music_item(platform, music)
+        if music.album_id == "":
+            max_choice = 1 + len(music.artists)
+        else:
+            max_choice = 2 + len(music.artists)
+        choice = input_int("请选择", 0, max_choice, 0)
         if choice == 0:
             break
         elif choice == 1:
-            netease.main()
-        elif choice == 2:
-            qq.main()
-        elif choice == 3:
-            kugou.main()
-        elif choice == 4:
-            bilibili.main()
+            download_one(platform, music)
+        elif 1 < choice <= 1 + len(music.artists):
+            artist = music.artists[choice - 2]
+            artist_loop(platform, artist)
+        elif choice == 2 + len(music.artists):
+            album_loop(platform, music)
+        else:
+            continue
 
 
-if __name__ == '__main__':
+def browse_loop(platform: MusicPlatform, keyword: str):
+    page = 1
+    while True:
+        cls()
+        result = platform.query_keyword(keyword, page)
+        if len(result) == 0:
+            if page == 1:
+                print(
+                    f"{platform.name} > 搜索 > {keyword} (第{page}页)\n无结果，2s后返回搜索"
+                )
+                time.sleep(2)
+                break
+            else:
+                print(
+                    f"{platform.name} > 搜索 > {keyword} (第{page}页)\n无结果，2s后返回上一页"
+                )
+                time.sleep(2)
+                page = page - 1
+                continue
+        print_query_result(
+            result, f"{platform.name} > 搜索 > {keyword} (第{page}页)", False
+        )
+        choice = input_int("请选择", 0, len(result) + 2, 0)
+        if choice == 0:
+            break
+        elif choice == len(result) + 1:
+            page = max(page - 1, 1)
+        elif choice == len(result) + 2:
+            page = page + 1
+        else:
+            item = result[choice - 1]
+            item_loop(platform, item)
+
+
+def search_loop(platform: MusicPlatform):
+    while True:
+        cls()
+        keyword = input(f"{platform.name} > 搜索: ")
+        if keyword == "0" or not keyword:
+            break
+        browse_loop(platform, keyword)
+
+
+def main():
+    platforms: list[MusicPlatform] = [Netease(), QQ(), Bilibili()]
+    while True:
+        cls()
+        print_platform(platforms)
+        choice = input_int("请选择", 0, len(platforms), 0)
+        if choice == 0:
+            break
+        platform = platforms[choice - 1]
+        cls()
+        search_loop(platform)
+    DOWNLOAD_QUEUE.join()
+    STOP_FLAG = True
+    time.sleep(1)
+
+
+if __name__ == "__main__":
     main()

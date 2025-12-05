@@ -2,3 +2,4 @@ requests~=2.31.0
 cryptography
 PyYAML~=6.0
 pycryptodome
+prettytable

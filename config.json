@@ -1,0 +1,7 @@
+{
+    "page_size": 10,
+    "num_threads": 4,
+    "save_dir": "music",
+    "save_filename": "{name} - {artists}.mp3",
+    "shorten": 20
+}
