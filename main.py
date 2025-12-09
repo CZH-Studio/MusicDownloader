@@ -1,5 +1,6 @@
 from pathlib import Path
 import time
+from dataclasses import replace
 
 from utils import (
     CONFIG,
@@ -10,6 +11,8 @@ from utils import (
     print_platform,
     print_query_result,
     print_music_item,
+    print_episodes,
+    sanitize_filename,
 )
 from music_platform import MusicPlatform, Music, Artist
 
@@ -50,6 +53,58 @@ def album_loop(platform: MusicPlatform, music: Music):
             item_loop(platform, item)
 
 
+def episode_loop(
+    platform: MusicPlatform, music: Music, episodes: list[tuple[str, str]]
+):
+    while True:
+        cls()
+        print_episodes(platform, music, episodes)
+        choice = input_int("请选择", 0, len(episodes) + 1, 0)
+        if choice == 0:
+            break
+        elif choice == len(episodes) + 1:
+            confirm = input_int("确认下载全部音乐?", 0, 1, 1)
+            if confirm == 0:
+                break
+            try:
+                for url, episode_name in episodes:
+                    filename = (
+                        CONFIG.save_filename.format(**music.to_dict())
+                        + f" - {episode_name}"
+                    )
+                    filename = sanitize_filename(filename)
+                    path = Path(CONFIG.save_dir) / (filename + f".{platform.ext}")
+                    music_new = replace(music, name=music.name + f" - {episode_name}")
+                    DOWNLOAD_QUEUE.put(
+                        (music_new, url, platform.headers, platform.cookies, path)
+                    )
+                DOWNLOAD_QUEUE.join()
+                time.sleep(2)
+            except KeyError:
+                print("无法下载，请检查config.json中的save_filename配置！")
+                time.sleep(2)
+                break
+        else:
+            url, episode_name = episodes[choice - 1]
+            try:
+                filename = (
+                    CONFIG.save_filename.format(**music.to_dict())
+                    + f" - {episode_name}"
+                )
+                filename = sanitize_filename(filename)
+                path = Path(CONFIG.save_dir) / (filename + f".{platform.ext}")
+                music_new = replace(music, name=music.name + f" - {episode_name}")
+                DOWNLOAD_QUEUE.put(
+                    (music_new, url, platform.headers, platform.cookies, path)
+                )
+                DOWNLOAD_QUEUE.join()
+                time.sleep(2)
+            except KeyError:
+                print("无法下载，请检查config.json中的save_filename配置！")
+                time.sleep(2)
+                break
+
+
 def download_one(platform: MusicPlatform, music: Music):
     cls()
     choice = input_int(f"确认下载 {music.name} - {music.artists_str} ?", 0, 1, 1)
@@ -60,17 +115,20 @@ def download_one(platform: MusicPlatform, music: Music):
         print(f"由于版权原因无法下载 {music.name}")
         time.sleep(2)
         return
-    try:
-        path = Path(CONFIG.save_dir) / (
-            CONFIG.save_filename.format(**music.to_dict()) + f".{platform.ext}"
-        )
-    except KeyError:
-        print("无法下载，请检查config.json中的save_filename配置！")
+    elif isinstance(url, str):
+        try:
+            filename = CONFIG.save_filename.format(**music.to_dict())
+            filename = sanitize_filename(filename)
+            path = Path(CONFIG.save_dir) / (filename + f".{platform.ext}")
+        except KeyError:
+            print("无法下载，请检查config.json中的save_filename配置！")
+            time.sleep(2)
+            return
+        DOWNLOAD_QUEUE.put((music, url, platform.headers, platform.cookies, path))
+        DOWNLOAD_QUEUE.join()
         time.sleep(2)
-        return
-    DOWNLOAD_QUEUE.put((music, url, platform.headers, platform.cookies, path))
-    DOWNLOAD_QUEUE.join()
-    time.sleep(2)
+    else:
+        episode_loop(platform, music, url)
 
 
 def download_all(platform: MusicPlatform, musics: list[Music]):

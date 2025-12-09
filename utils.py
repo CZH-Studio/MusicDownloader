@@ -5,6 +5,8 @@ import json
 import queue
 import threading
 import textwrap
+import re
+import unicodedata
 
 import requests
 from prettytable import PrettyTable, PLAIN_COLUMNS
@@ -126,6 +128,87 @@ def save_shorten(s: str, width: int, placeholder: str = "..."):
     return shortened
 
 
+WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def _is_windows_reserved(name: str) -> bool:
+    # 比较时大小写不敏感，且如果名字等于保留名或以保留名加点开头也视为保留
+    upp = name.upper()
+    for r in WINDOWS_RESERVED_NAMES:
+        if upp == r or upp.startswith(r + "."):
+            return True
+    return False
+
+
+def sanitize_filename(
+    name: str,
+    replacement: str = "_",
+    platform: str = "auto",
+    max_length: int | None = None,
+) -> str:
+    """
+    将 name 中不合法的文件名字符替换为 replacement。
+    platform: "auto" (根据 os.name 推断), "windows", "posix", "cross"（更严格）
+    max_length: 可选，截断到指定长度（保留扩展名的情况下可自行改造）
+    """
+    if name is None:
+        return ""
+    # 规范化 Unicode（可选，避免奇怪的组合字符）
+    name = unicodedata.normalize("NFKC", str(name))
+
+    # 选择规则
+    import os
+
+    pf = platform.lower()
+    if pf == "auto":
+        pf = "windows" if os.name == "nt" else "posix"
+    if pf not in {"windows", "posix", "cross"}:
+        raise ValueError("platform must be 'auto','windows','posix' or 'cross'")
+
+    if pf == "windows":
+        # Windows 不允许: <>:"/\\|?* 以及 0-31 控制字符
+        forbidden = re.compile(r'[<>:"/\\|?\*\x00-\x1F]')
+    elif pf == "posix":
+        # POSIX 只禁止 / 和 NUL 字符（\x00）
+        forbidden = re.compile(r"[\/\x00]")
+    else:  # cross (严格): 合并两者并去掉一些常见危险符
+        forbidden = re.compile(r'[<>:"/\\|?\*\x00-\x1F]')
+
+    # 替换
+    safe = forbidden.sub(replacement, name)
+
+    # Windows 不能以空格或点结尾 — 去掉尾部空格和点（替换为 replacement）
+    if pf == "windows" or pf == "cross":
+        # 将尾部的空格或点全部替换（不直接strip以免丢失信息，改为替换为 replacement）
+        # 示例: "file. " -> "file_"
+        m = re.search(r"[ \.]+$", safe)
+        if m:
+            safe = re.sub(r"[ \.]+$", replacement, safe)
+
+    # 如果变成空串，返回单下划线（或 replacement）
+    if safe == "":
+        safe = replacement
+
+    # 避免保留名（Windows）
+    if pf == "windows" or pf == "cross":
+        if _is_windows_reserved(safe):
+            safe = safe + replacement
+
+    # 可选截断
+    if max_length is not None and isinstance(max_length, int) and max_length > 0:
+        if len(safe) > max_length:
+            safe = safe[:max_length]
+
+    return safe
+
+
 def print_platform(platforms: list[MusicPlatform]):
     table = PrettyTable()
     table.set_style(PLAIN_COLUMNS)
@@ -177,4 +260,20 @@ def print_music_item(platform: MusicPlatform, music: Music):
     if music.album_id:
         table.add_row([f"[{2+len(music.artists)}]", f"搜索专辑: {music.album}"])
     table.add_row([f"[{0}]", "返回搜索结果"])
+    print(table)
+
+
+def print_episodes(
+    platform: MusicPlatform, music: Music, episodes: list[tuple[str, str]]
+):
+    table = PrettyTable()
+    table.set_style(PLAIN_COLUMNS)
+    table.align = "l"
+    table.padding_width = 0
+    table.title = f"{platform.name} > 音乐 > {music.name} > 选集"
+    table.field_names = ["选项", "集"]
+    for i, (_, episode_name) in enumerate(episodes):
+        table.add_row([f"[{i+1}]", episode_name])
+    table.add_row([f"[{len(episodes) + 1}]", "下载全部"])
+    table.add_row([f"[{0}]", "返回"])
     print(table)

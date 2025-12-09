@@ -92,5 +92,5 @@ class MusicPlatform(ABC):
         pass
 
     @abstractmethod
-    def get_music_url(self, music_id: str) -> str:
+    def get_music_url(self, music_id: str) -> str | list[tuple[str, str]]:
         pass

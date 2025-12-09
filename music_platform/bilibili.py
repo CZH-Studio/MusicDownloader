@@ -107,17 +107,34 @@ class Bilibili(MusicPlatform):
         except KeyError:
             return MusicQueryResult(ResponseCode.FormatError, [])
 
-    def get_music_url(self, music_id: str) -> str:
+    def get_music_url(self, music_id: str) -> str | list[tuple[str, str]]:
         url_1 = f"https://api.bilibili.com/x/web-interface/view?bvid={music_id}"
         response_1 = requests.get(
             url_1, headers=self.headers, cookies=self.cookies
         ).json()
-        cid = response_1["data"]["cid"]
-        url_2 = f"https://api.bilibili.com/x/player/playurl?fnval=16&bvid={music_id}&cid={cid}"
-        response_2 = requests.get(
-            url_2, headers=self.headers, cookies=self.cookies
-        ).json()
-        music_url = response_2["data"]["dash"]["audio"][0]["baseUrl"]
+        pages = response_1["data"]["pages"]
+        episodes = [(page["cid"], page["part"]) for page in pages]
+        url_2_base = "https://api.bilibili.com/x/player/playurl?fnval=16&bvid={music_id}&cid={cid}"
+        if len(episodes) == 1:
+            cid, _ = episodes[0]
+            url_2 = url_2_base.format(music_id=music_id, cid=cid)
+            response_2 = requests.get(
+                url_2, headers=self.headers, cookies=self.cookies
+            ).json()
+            music_url: str | list[tuple[str, str]] = response_2["data"]["dash"][
+                "audio"
+            ][0]["baseUrl"]
+        else:
+            music_url = []
+            for episode in episodes:
+                cid, episode_name = episode
+                url_2 = url_2_base.format(music_id=music_id, cid=cid)
+                response_2 = requests.get(
+                    url_2, headers=self.headers, cookies=self.cookies
+                ).json()
+                music_url.append(
+                    (response_2["data"]["dash"]["audio"][0]["baseUrl"], episode_name)
+                )
         return music_url
 
     def query_artist(self, artist_id: str) -> MusicQueryResult:
